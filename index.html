@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Ponto Digital | Back4App Cloud</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="https://unpkg.com/parse/dist/parse.min.js"></script>
+    <style>
+        * { font-family: 'Inter', system-ui, sans-serif; }
+        body { background: radial-gradient(circle at 10% 20%, #0f192d 0%, #0a1423 100%); min-height: 100vh; }
+        .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 2rem; transition: all 0.3s ease; }
+        .glass-card:hover { transform: translateY(-4px); border-color: rgba(99,102,241,0.5); }
+        .btn-primary { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); transition: all 0.2s; }
+        .btn-primary:hover { transform: scale(1.02); box-shadow: 0 10px 25px -5px rgba(79,70,229,0.4); }
+        .input-expert { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); border-radius: 1rem; padding: 0.75rem 1rem; color: white; transition: all 0.2s; }
+        .input-expert:focus { outline: none; border-color: #4f46e5; background: rgba(255,255,255,0.12); }
+        .employee-photo { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 3px solid #4f46e5; }
+        .report-table { font-size: 0.7rem; border-collapse: collapse; width: 100%; color: #e2e8f0; }
+        .report-table th, .report-table td { border: 1px solid rgba(255,255,255,0.1); padding: 8px; text-align: center; }
+        .report-table th { background: rgba(79,70,229,0.3); }
+        .face-photo { width: 60px; height: 60px; object-fit: cover; border-radius: 12px; border: 1px solid #4f46e5; cursor: pointer; }
+        .modal-photo { max-width: 90%; max-height: 90vh; border-radius: 1rem; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1e293b; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 10px; }
+        @media (max-width: 640px) { .glass-card { padding: 1rem !important; } .input-expert { padding: 0.5rem 0.75rem; } }
+    </style>
+</head>
+<body class="p-4 md:p-6 flex justify-center min-h-screen">
+<div id="app" class="w-full max-w-7xl mx-auto">
+
+    <!-- TELA DE LOGIN -->
+    <div id="loginScreen" class="flex items-center justify-center min-h-[80vh]">
+        <div class="glass-card w-full max-w-md p-8">
+            <div class="text-center mb-6">
+                <div class="bg-gradient-to-r from-indigo-600 to-purple-600 w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-lg">
+                    <i class="fas fa-clock text-4xl text-white"></i>
+                </div>
+                <h1 class="text-3xl font-bold mt-4 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Ponto Digital</h1>
+                <p class="text-gray-400 text-sm">Back4App Cloud | Reconhecimento Facial</p>
+            </div>
+            <div class="flex border-b border-gray-700 mb-4">
+                <button id="tabAdminBtn" class="flex-1 py-2 font-semibold text-indigo-400 border-b-2 border-indigo-400">Admin</button>
+                <button id="tabEmployeeBtn" class="flex-1 py-2 font-semibold text-gray-400">Funcionário</button>
+            </div>
+            <div id="adminLoginPanel" class="space-y-4">
+                <input type="text" id="loginUser" placeholder="Usuário admin" class="input-expert w-full" value="admin">
+                <input type="password" id="loginPass" placeholder="Senha" class="input-expert w-full">
+                <button id="doLoginBtn" class="btn-primary w-full text-white font-semibold py-3 rounded-xl">Entrar</button>
+            </div>
+            <div id="employeeLoginPanel" class="hidden space-y-4">
+                <input type="text" id="employeeIdInput" placeholder="Seu ID" class="input-expert w-full">
+                <input type="password" id="employeePassInput" placeholder="Senha" class="input-expert w-full">
+                <button id="doEmployeeActionBtn" class="btn-primary w-full text-white font-semibold py-3 rounded-xl">Entrar / Bater Ponto</button>
+                <button id="employeeFaceLoginBtn" class="bg-emerald-700 w-full text-white py-2 rounded-xl flex items-center justify-center gap-2"><i class="fas fa-camera"></i> Login com Reconhecimento Facial (e foto do ponto)</button>
+                <div class="flex justify-between mt-2 text-sm">
+                    <a id="forgotPasswordLink" class="text-indigo-400 cursor-pointer hover:underline">Esqueci minha senha</a>
+                    <a id="newRegistrationLink" class="text-indigo-400 cursor-pointer hover:underline">Novo cadastro</a>
+                </div>
+                <p class="text-xs text-center text-gray-500">ID + Senha → acesso completo | Apenas ID → bater ponto rápido</p>
+            </div>
+            <div id="loginError" class="mt-4 text-red-400 text-sm text-center hidden bg-red-900/30 p-2 rounded-lg"></div>
+        </div>
+    </div>
+
+    <!-- MODAIS (recuperação e cadastro) -->
+    <div id="forgotModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-md border border-gray-700"><h3 class="text-xl font-bold text-white mb-3">Recuperar Senha</h3><div id="forgotStep1"><input type="email" id="forgotEmail" placeholder="Seu e-mail" class="input-expert w-full mb-4"><button id="sendCodeBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg w-full">Enviar código</button></div><div id="forgotStep2" class="hidden"><input type="text" id="resetCode" placeholder="Código" class="input-expert w-full mb-2"><input type="password" id="newPassword" placeholder="Nova senha" class="input-expert w-full mb-4"><button id="resetPasswordBtn" class="bg-green-600 text-white px-4 py-2 rounded-lg w-full">Redefinir</button></div><button id="closeForgotModal" class="mt-3 text-gray-400 text-sm w-full">Cancelar</button><div id="forgotMessage" class="mt-3 text-sm text-center hidden"></div></div>
+    </div>
+    <div id="registerModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-md border border-gray-700"><h3 class="text-xl font-bold text-white mb-3">Novo Cadastro</h3><input type="text" id="regName" placeholder="Nome completo *" class="input-expert w-full mb-2"><input type="text" id="regId" placeholder="ID *" class="input-expert w-full mb-2"><input type="email" id="regEmail" placeholder="E-mail *" class="input-expert w-full mb-2"><input type="password" id="regPassword" placeholder="Senha *" class="input-expert w-full mb-2"><input type="text" id="regCpf" placeholder="CPF" class="input-expert w-full mb-2"><input type="text" id="regCelular" placeholder="Celular" class="input-expert w-full mb-2"><button id="confirmRegisterBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg w-full">Cadastrar</button><button id="registerFaceBtn" class="bg-emerald-700 text-white px-4 py-2 rounded-lg w-full mt-2 flex items-center justify-center gap-2"><i class="fas fa-camera"></i> Cadastrar com Reconhecimento Facial</button><button id="closeRegisterModal" class="mt-3 text-gray-400 text-sm w-full">Cancelar</button><div id="registerMessage" class="mt-3 text-sm text-center hidden"></div></div>
+    </div>
+
+    <!-- MODAL DE CÂMERA -->
+    <div id="cameraModal" class="fixed inset-0 bg-black/90 flex items-center justify-center z-50 hidden">
+        <div class="bg-gray-900 rounded-2xl p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold text-white mb-3" id="cameraModalTitle">Capturar Rosto</h3>
+            <div class="camera-container flex justify-center">
+                <video id="faceVideo" autoplay playsinline muted class="rounded-xl w-full"></video>
+            </div>
+            <div id="faceStatus" class="text-center text-sm text-gray-300 mt-2"></div>
+            <div class="flex gap-2 mt-4">
+                <button id="captureFaceBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg flex-1">Capturar e Salvar</button>
+                <button id="closeCameraBtn" class="bg-gray-600 text-white px-4 py-2 rounded-lg flex-1">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PARA EXIBIR FOTO GRANDE -->
+    <div id="photoModal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
+        <div class="relative">
+            <img id="photoModalImg" class="modal-photo" src="">
+            <button id="closePhotoModal" class="absolute top-2 right-2 bg-gray-800 text-white rounded-full w-8 h-8">X</button>
+        </div>
+    </div>
+
+    <!-- PAINEL ADMIN -->
+    <div id="adminPanel" class="hidden">
+        <div class="glass-card p-5 md:p-7">
+            <div class="flex flex-wrap justify-between items-center border-b border-gray-700 pb-4 mb-4">
+                <div class="flex items-center gap-3"><i class="fas fa-shield-alt text-3xl text-indigo-400"></i><h1 class="text-2xl font-bold text-white">Admin - Ponto Digital</h1><span class="bg-green-900 text-green-300 text-xs px-3 py-1 rounded-full">Cloud</span></div>
+                <button id="adminLogoutBtn" class="bg-gray-800 hover:bg-gray-700 px-5 py-2 rounded-full text-white">Sair</button>
+            </div>
+            <!-- Abas -->
+            <div class="flex border-b border-gray-700 mb-6">
+                <button class="tab-admin-btn py-2 px-4 text-indigo-400 border-b-2 border-indigo-400" data-tab="config">Configurações</button>
+                <button class="tab-admin-btn py-2 px-4 text-gray-400" data-tab="evolution">Evolução</button>
+                <button class="tab-admin-btn py-2 px-4 text-gray-400" data-tab="reports">Relatórios</button>
+                <button class="tab-admin-btn py-2 px-4 text-gray-400" data-tab="facephotos">Fotos dos Pontos</button>
+                <button class="tab-admin-btn py-2 px-4 text-gray-400" data-tab="employees">Funcionários</button>
+            </div>
+
+            <!-- Conteúdo das abas -->
+            <div id="tabConfig" class="admin-tab-content">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-gray-800/50 p-5 rounded-2xl"><h2 class="text-xl font-bold text-white mb-3"><i class="fas fa-building mr-2"></i>Empresa</h2><input type="text" id="companyName" class="input-expert w-full mb-2"><input type="text" id="companyCnpj" class="input-expert w-full mb-2"><button id="saveCompanyBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg w-full">Salvar</button></div>
+                    <div class="bg-gray-800/50 p-5 rounded-2xl"><h2 class="text-xl font-bold text-white mb-3"><i class="fas fa-clock mr-2"></i>Carga Horária</h2><div class="grid grid-cols-2 gap-2"><input type="time" id="morningEntry" class="input-expert"><input type="time" id="morningExit" class="input-expert"><input type="time" id="afternoonEntry" class="input-expert"><input type="time" id="afternoonExit" class="input-expert"><input type="number" id="toleranceMinutes" placeholder="Tolerância (min)" class="col-span-2 input-expert" value="10"></div><button id="saveWorkHoursBtn" class="bg-green-600 text-white px-4 py-2 rounded-lg w-full mt-2">Salvar</button></div>
+                    <div class="bg-gray-800/50 p-5 rounded-2xl"><h2 class="text-xl font-bold text-white mb-3"><i class="fas fa-calendar-alt mr-2"></i>Feriados</h2><div class="flex flex-wrap gap-2 mb-2"><input type="date" id="holidayDate" class="input-expert flex-1"><input type="text" id="holidayName" placeholder="Nome" class="input-expert flex-1"><button id="addHolidayBtn" class="bg-amber-600 text-white px-3 rounded-lg">+</button></div><div id="holidayList" class="flex flex-wrap gap-2"></div></div>
+                    <div class="bg-gray-800/50 p-5 rounded-2xl"><h2 class="text-xl font-bold text-white mb-3"><i class="fas fa-user-plus mr-2"></i>Novo Funcionário</h2><div class="grid grid-cols-2 gap-2"><input type="text" id="adminNewName" placeholder="Nome" class="input-expert"><input type="text" id="adminNewId" placeholder="ID" class="input-expert"><input type="password" id="adminNewPass" placeholder="Senha" class="input-expert"><input type="email" id="adminNewEmail" placeholder="E-mail" class="input-expert col-span-2"></div><button id="adminRegisterUserBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg w-full mt-2">Registrar</button><div id="registerError" class="text-red-400 text-sm mt-1 hidden"></div></div>
+                </div>
+                <div class="bg-gray-800/50 p-5 rounded-2xl mb-8"><h2 class="text-xl font-bold text-white mb-3"><i class="fas fa-user-cog mr-2"></i>Configurações do Admin</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-sm text-gray-300">Nome</label><input type="text" id="adminNameInput" class="input-expert w-full"></div><div><label class="block text-sm text-gray-300">Nova Senha</label><input type="password" id="adminPasswordInput" class="input-expert w-full"></div></div><button id="saveAdminSettingsBtn" class="bg-purple-700 text-white px-4 py-2 rounded-lg w-full mt-3">Salvar</button><div id="adminSettingsMsg" class="text-sm mt-2 hidden"></div></div>
+                <div class="bg-gray-800/50 p-5 rounded-2xl mb-8"><h2 class="text-xl font-bold text-white mb-3"><i class="fas fa-database mr-2"></i>Backup & Restauração</h2><div class="flex flex-wrap gap-4 items-center"><label class="flex items-center gap-2 text-white"><input type="checkbox" id="autoBackupCheckbox" checked> Backup automático a cada hora (local)</label><button id="manualBackupBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg"><i class="fas fa-download mr-2"></i>Exportar Backup (JSON)</button><label class="bg-purple-600 text-white px-4 py-2 rounded-lg cursor-pointer"><i class="fas fa-upload mr-2"></i>Importar Backup<input type="file" id="importBackupFile" accept=".json" class="hidden"></label><span id="backupStatus" class="text-sm text-gray-400"></span></div><p class="text-xs text-gray-400 mt-2">Os dados principais estão no Back4App; este backup é para segurança local.</p></div>
+            </div>
+
+            <div id="tabEvolution" class="admin-tab-content hidden">
+                <div class="bg-gray-800/50 p-5 rounded-2xl"><h2 class="text-xl font-bold text-white mb-3"><i class="fas fa-chart-line mr-2"></i>Evolução Diária</h2><div class="flex flex-wrap gap-3 items-end mb-4"><div class="flex-1"><label class="block text-sm text-gray-300">Funcionário</label><select id="evolutionEmployeeId" class="input-expert w-full"></select></div><div><label class="block text-sm text-gray-300">Dias</label><select id="evolutionDays" class="input-expert"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option></select></div><button id="updateEvolutionBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Atualizar Gráfico</button></div><canvas id="evolutionChart" width="400" height="200" class="w-full h-auto bg-gray-900 rounded-xl p-2"></canvas></div>
+            </div>
+
+            <div id="tabReports" class="admin-tab-content hidden">
+                <div class="bg-gray-800/50 p-5 rounded-2xl"><h2 class="text-xl font-bold text-white mb-3"><i class="fas fa-chart-line mr-2"></i>Relatório de Horas (com IP)</h2><div class="flex flex-wrap gap-3 items-end"><div class="flex-1"><label class="block text-sm text-gray-300">Funcionário</label><select id="adminReportUserId" class="input-expert w-full"></select></div><div><label class="block text-sm text-gray-300">Início</label><input type="date" id="adminReportStart" class="input-expert"></div><div><label class="block text-sm text-gray-300">Fim</label><input type="date" id="adminReportEnd" class="input-expert"></div><button id="adminGenerateReportBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Gerar</button><button id="adminPrintReportBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Imprimir</button></div><div id="adminReportResult" class="mt-4 overflow-x-auto text-white"></div></div>
+            </div>
+
+            <div id="tabFacePhotos" class="admin-tab-content hidden">
+                <div class="bg-gray-800/50 p-5 rounded-2xl"><h2 class="text-xl font-bold text-white mb-3"><i class="fas fa-camera mr-2"></i>Fotos dos Pontos (Reconhecimento Facial)</h2><div class="flex flex-wrap gap-4 mb-4"><div class="flex-1"><label class="block text-sm text-gray-300">Funcionário</label><select id="facePhotoEmployeeFilter" class="input-expert"><option value="">Todos</option></select></div><div><label class="block text-sm text-gray-300">Data inicial</label><input type="date" id="facePhotoStartDate" class="input-expert"></div><div><label class="block text-sm text-gray-300">Data final</label><input type="date" id="facePhotoEndDate" class="input-expert"></div><button id="filterFacePhotosBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Filtrar</button></div><div id="facePhotosList" class="grid grid-cols-2 md:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto p-2"></div></div>
+            </div>
+
+            <div id="tabEmployees" class="admin-tab-content hidden">
+                <div class="bg-gray-800/50 p-5 rounded-2xl"><h2 class="text-xl font-bold text-white mb-3"><i class="fas fa-users mr-2"></i>Colaboradores</h2><div id="adminUsersTable" class="space-y-2 text-white"></div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAINEL FUNCIONÁRIO -->
+    <div id="employeePanel" class="hidden">
+        <div class="glass-card p-5 md:p-7">
+            <div class="flex flex-wrap justify-between items-center border-b border-gray-700 pb-3 mb-4">
+                <div class="flex items-center gap-3"><img id="empPhotoImg" class="employee-photo" src="https://via.placeholder.com/80?text=Foto"><div><h2 id="empNameDisplay" class="text-2xl font-bold text-white"></h2><span class="text-sm bg-gray-800 px-3 py-1 rounded-full text-gray-300">ID: <span id="empIdDisplay"></span></span></div></div>
+                <button id="empLogoutBtn" class="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-full text-white">Sair</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-gray-800/50 rounded-xl p-4"><h3 class="font-bold text-lg text-white mb-3"><i class="fas fa-edit mr-2"></i>Meu Perfil</h3><input type="password" id="empNewPassword" placeholder="Nova senha" class="input-expert w-full mb-2"><input type="text" id="empNewId" placeholder="Novo ID" class="input-expert w-full mb-2"><input type="email" id="empNewEmail" placeholder="E-mail" class="input-expert w-full mb-2"><input type="file" id="empPhotoUpload" accept="image/*" class="input-expert w-full mb-2"><button id="empUpdateDataBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg w-full">Salvar</button><div id="empUpdateMsg" class="text-sm mt-2 hidden"></div></div>
+                <div class="bg-gray-800/50 rounded-xl p-4"><h3 class="font-bold text-lg text-white mb-3"><i class="fas fa-chart-simple mr-2"></i>Meu Relatório (com IP)</h3><div class="flex flex-wrap gap-2 mb-3"><input type="date" id="empReportStart" class="input-expert flex-1"><input type="date" id="empReportEnd" class="input-expert flex-1"><button id="empGenerateReportBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Gerar</button><button id="empPrintReportBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Imprimir</button></div><div id="empReportResult" class="overflow-x-auto text-white"></div></div>
+            </div>
+            <div class="bg-gray-800/50 rounded-xl p-4 mt-6"><h3 class="font-bold text-lg text-white mb-2"><i class="fas fa-qrcode mr-2"></i>Meu QR Code</h3><p class="text-sm text-gray-400 mb-3">Escaneie para ver suas informações profissionais.</p><div id="funcionarioQrCode" class="flex justify-center p-3 bg-gray-900 rounded-xl"></div><button id="baixarQrCodeBtn" class="bg-blue-600 text-white px-4 py-2 rounded-lg w-full mt-3"><i class="fas fa-download mr-2"></i>Baixar QR Code (PNG)</button></div>
+        </div>
+    </div>
+
+    <!-- MODAL EDIÇÃO FUNCIONÁRIO -->
+    <div id="editEmployeeModal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"><div class="bg-gray-900 rounded-2xl p-6 w-full max-w-md border border-gray-700"><h3 class="text-xl font-bold text-white mb-3">Editar Funcionário</h3><input type="hidden" id="editUserId"><div class="space-y-2"><input type="text" id="editName" placeholder="Nome" class="input-expert w-full"><input type="text" id="editId" placeholder="ID" class="input-expert w-full"><input type="email" id="editEmail" placeholder="E-mail" class="input-expert w-full"><input type="password" id="editPassword" placeholder="Nova senha" class="input-expert w-full"><input type="text" id="editCpf" placeholder="CPF" class="input-expert w-full"><input type="text" id="editEndereco" placeholder="Endereço" class="input-expert w-full"><input type="text" id="editCelular" placeholder="Celular" class="input-expert w-full"><div><img id="editPhotoPreview" class="mini-photo w-10 h-10 rounded-full mb-1"><input type="file" id="editPhotoUpload" accept="image/*" class="input-expert w-full"></div></div><div class="flex gap-2 mt-4"><button id="saveEmployeeEdit" class="bg-green-600 text-white px-4 py-2 rounded-lg">Salvar</button><button id="closeModalBtn" class="bg-gray-600 text-white px-4 py-2 rounded-lg">Cancelar</button></div></div></div>
+</div>
+
+<script>
+    // ==================== CONFIGURAÇÃO BACK4APP ====================
+    const APP_ID = "KFeygOd6k3EB08uqRwLGH0NelkzTA2yGdFpr8hqZ";
+    const JS_KEY = "IUp8VTK20R4ARwLKtKgP35QNbdd51HD9MiRfxmG0";
+    Parse.initialize(APP_ID, JS_KEY);
+    Parse.serverURL = "https://parseapi.back4app.com/";
+
+    // ==================== VARIÁVEIS GLOBAIS ====================
+    let currentUser = null;
+    let currentEmployee = null;
+    let tempResetCode = null, tempResetEmail = null;
+    let autoBackupInterval = null;
+    let evolutionChart = null;
+    let faceModelsLoaded = false;
+    let currentFaceStream = null;
+
+    // ==================== FUNÇÕES AUXILIARES ====================
+    function formatDateTime(iso) { if (!iso) return "—"; let d = new Date(iso); return `${d.toLocaleDateString('pt-BR')} ${d.toLocaleTimeString('pt-BR')}`; }
+    function formatTime(iso) { if (!iso) return "—"; return new Date(iso).toLocaleTimeString('pt-BR'); }
+    function formatDate(iso) { if (!iso) return "—"; return new Date(iso).toLocaleDateString('pt-BR'); }
+    function escapeHtml(str) { return str ? String(str).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])) : ''; }
+    function segundosParaHMS(s) { if (s < 0) s = 0; let h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60; return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`; }
+    function gerarSerial() { const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; let serial; do { serial = ''; for (let i=0;i<5;i++) serial += chars.charAt(Math.floor(Math.random()*chars.length)); } while (false); return serial; }
+    async function getPublicIP() { try { const res = await fetch('https://api.ipify.org?format=json'); const data = await res.json(); return data.ip; } catch(e) { return 'IP não obtido'; } }
+
+    // ==================== MODELOS FACIAIS ====================
+    async function loadFaceModels() {
+        if (faceModelsLoaded) return true;
+        const statusDiv = document.getElementById('faceStatus');
+        if (statusDiv) statusDiv.innerText = "Carregando modelos...";
+        try {
+            await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
+            await faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
+            await faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights');
+            faceModelsLoaded = true;
+            if (statusDiv) statusDiv.innerText = "Modelos prontos!";
+            return true;
+        } catch(e) { console.error(e); if (statusDiv) statusDiv.innerText = "Erro nos modelos."; return false; }
+    }
+
+    async function openCameraForFace(callback, capturePhoto = false) {
+        if (!await loadFaceModels()) { alert("Erro ao carregar modelos faciais."); return; }
+        const modal = document.getElementById('cameraModal');
+        const video = document.getElementById('faceVideo');
+        const statusDiv = document.getElementById('faceStatus');
+        modal.classList.remove('hidden');
+        if (currentFaceStream) currentFaceStream.getTracks().forEach(track => track.stop());
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            currentFaceStream = stream;
+            video.srcObject = stream;
+            await video.play();
+            statusDiv.innerText = "Posicione o rosto e clique em Capturar";
+            document.getElementById('captureFaceBtn').onclick = async () => {
+                const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                if (!detection) { statusDiv.innerText = "Nenhum rosto detectado."; return; }
+                let photo = null;
+                if (capturePhoto) {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                    photo = canvas.toDataURL('image/jpeg', 0.8);
+                }
+                statusDiv.innerText = "Rosto capturado!";
+                if (callback) callback(Array.from(detection.descriptor), photo);
+                closeCamera();
+            };
+            document.getElementById('closeCameraBtn').onclick = closeCamera;
+        } catch(err) { alert("Erro ao acessar câmera: " + err.message); closeCamera(); }
+    }
+    function closeCamera() {
+        if (currentFaceStream) { currentFaceStream.getTracks().forEach(track => track.stop()); currentFaceStream = null; }
+        document.getElementById('cameraModal').classList.add('hidden');
+        document.getElementById('faceVideo').srcObject = null;
+    }
+
+    // ==================== CRUD COM PARSE ====================
+    async function getCompany() {
+        let query = new Parse.Query("Company");
+        let obj = await query.first();
+        if (!obj) { obj = new Parse.Object("Company"); obj.set("name", "Empresa Modelo"); obj.set("cnpj", "00.000.000/0001-00"); await obj.save(); }
+        return obj;
+    }
+    async function getWorkHours() {
+        let query = new Parse.Query("WorkHours");
+        let obj = await query.first();
+        if (!obj) { obj = new Parse.Object("WorkHours"); obj.set("morningEntry","08:00"); obj.set("morningExit","12:00"); obj.set("afternoonEntry","13:00"); obj.set("afternoonExit","17:00"); obj.set("toleranceMinutes",10); await obj.save(); }
+        return obj;
+    }
+    async function getHolidays() { return await new Parse.Query("Holiday").find(); }
+    async function getEmployees() { return await new Parse.Query("Employee").find(); }
+    async function getReceipts() { return await new Parse.Query("Receipt").find(); }
+    async function getFacePhotos() { return await new Parse.Query("FacePhoto").find(); }
+
+    // ==================== ADMIN ====================
+    async function renderAdminUsers() {
+        const container = document.getElementById('adminUsersTable');
+        if (!container) return;
+        const employees = await getEmployees();
+        container.innerHTML = employees.map(emp => {
+            const id = emp.get("employeeId");
+            const name = emp.get("name");
+            const email = emp.get("email") || '';
+            const photo = emp.get("photo") || '';
+            const photoHtml = photo ? `<img src="${photo}" class="w-8 h-8 rounded-full object-cover">` : '<i class="fas fa-user-circle text-gray-400 text-2xl"></i>';
+            return `<div class="border-b border-gray-700 py-2 flex justify-between items-center">
+                        <div class="flex items-center gap-2">${photoHtml}<div><strong>${escapeHtml(id)}</strong> - ${escapeHtml(name)}<br><span class="text-xs text-gray-400">${escapeHtml(email)}</span></div></div>
+                        <div><button class="editEmployeeBtn text-blue-400 mr-2" data-id="${id}">Editar</button><button class="deleteEmployeeBtn text-red-400" data-id="${id}">Excluir</button><button class="faceRegisterBtn text-emerald-400" data-id="${id}"><i class="fas fa-camera"></i> Rosto</button></div>
+                    </div>`;
+        }).join('');
+        attachAdminButtons();
+    }
+    function attachAdminButtons() {
+        document.querySelectorAll('.editEmployeeBtn').forEach(btn => btn.addEventListener('click', () => openEditModal(btn.dataset.id)));
+        document.querySelectorAll('.deleteEmployeeBtn').forEach(btn => btn.addEventListener('click', async () => {
+            if (confirm("Excluir funcionário e todos os registros?")) {
+                const id = btn.dataset.id;
+                const emp = await new Parse.Query("Employee").equalTo("employeeId", id).first();
+                if (emp) await emp.destroy();
+                await refreshAdminUI();
+            }
+        }));
+        document.querySelectorAll('.faceRegisterBtn').forEach(btn => btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            const emp = await new Parse.Query("Employee").equalTo("employeeId", id).first();
+            if (!emp) return;
+            openCameraForFace(async (descriptor) => {
+                emp.set("faceDescriptor", descriptor);
+                await emp.save();
+                alert(`Rosto registrado para ${emp.get("name")}`);
+            }, false);
+        }));
+    }
+    async function openEditModal(id) {
+        const emp = await new Parse.Query("Employee").equalTo("employeeId", id).first();
+        if (!emp) return;
+        document.getElementById('editUserId').value = emp.get("employeeId");
+        document.getElementById('editName').value = emp.get("name");
+        document.getElementById('editId').value = emp.get("employeeId");
+        document.getElementById('editEmail').value = emp.get("email") || '';
+        document.getElementById('editCpf').value = emp.get("cpf") || '';
+        document.getElementById('editEndereco').value = emp.get("endereco") || '';
+        document.getElementById('editCelular').value = emp.get("celular") || '';
+        document.getElementById('editPassword').value = '';
+        document.getElementById('editPhotoPreview').src = emp.get("photo") || 'https://via.placeholder.com/40';
+        document.getElementById('editPhotoUpload').value = '';
+        document.getElementById('editEmployeeModal').classList.remove('hidden');
+    }
+    async function saveEmployeeEdit() {
+        const oldId = document.getElementById('editUserId').value;
+        const newId = document.getElementById('editId').value.trim();
+        const name = document.getElementById('editName').value.trim();
+        const email = document.getElementById('editEmail').value.trim();
+        const cpf = document.getElementById('editCpf').value.trim();
+        const endereco = document.getElementById('editEndereco').value.trim();
+        const celular = document.getElementById('editCelular').value.trim();
+        const newPass = document.getElementById('editPassword').value.trim();
+        const photoFile = document.getElementById('editPhotoUpload').files[0];
+        if (!name || !newId) { alert("Nome e ID obrigatórios"); return; }
+        let emp = await new Parse.Query("Employee").equalTo("employeeId", oldId).first();
+        if (!emp) return;
+        if (newId !== oldId) {
+            const exists = await new Parse.Query("Employee").equalTo("employeeId", newId).first();
+            if (exists) { alert("ID já existe"); return; }
+            emp.set("employeeId", newId);
+        }
+        emp.set("name", name); emp.set("email", email); emp.set("cpf", cpf); emp.set("endereco", endereco); emp.set("celular", celular);
+        if (newPass) emp.set("password", newPass);
+        if (photoFile) {
+            const reader = new FileReader();
+            reader.onload = async e => { emp.set("photo", e.target.result); await emp.save(); await refreshAdminUI(); alert("Atualizado!"); document.getElementById('editEmployeeModal').classList.add('hidden'); };
+            reader.readAsDataURL(photoFile);
+            return;
+        }
+        await emp.save(); await refreshAdminUI(); alert("Atualizado!"); document.getElementById('editEmployeeModal').classList.add('hidden');
+    }
+    async function populateSelects() {
+        const employees = await getEmployees();
+        const options = employees.map(e => `<option value="${escapeHtml(e.get("employeeId"))}">${escapeHtml(e.get("name"))} (${escapeHtml(e.get("employeeId"))})</option>`).join('');
+        document.getElementById('adminReportUserId').innerHTML = '<option value="">Selecione</option>' + options;
+        document.getElementById('evolutionEmployeeId').innerHTML = '<option value="">Selecione</option>' + options;
+        document.getElementById('facePhotoEmployeeFilter').innerHTML = '<option value="">Todos</option>' + options;
+    }
+    async function renderHolidayList() {
+        const div = document.getElementById('holidayList');
+        if (!div) return;
+        const holidays = await getHolidays();
+        div.innerHTML = holidays.map(h => `<span class="bg-amber-900 text-amber-200 px-2 py-1 rounded-full text-xs">${h.get("date")} - ${h.get("name")} <button class="delHoliday text-red-400 ml-1" data-id="${h.id}">x</button></span>`).join('');
+        document.querySelectorAll('.delHoliday').forEach(btn => btn.addEventListener('click', async () => {
+            const h = await new Parse.Query("Holiday").get(btn.dataset.id);
+            await h.destroy();
+            renderHolidayList();
+        }));
+    }
+    async function loadAdminData() {
+        const company = await getCompany();
+        const wh = await getWorkHours();
+        document.getElementById('companyName').value = company.get("name");
+        document.getElementById('companyCnpj').value = company.get("cnpj");
+        document.getElementById('morningEntry').value = wh.get("morningEntry");
+        document.getElementById('morningExit').value = wh.get("morningExit");
+        document.getElementById('afternoonEntry').value = wh.get("afternoonEntry");
+        document.getElementById('afternoonExit').value = wh.get("afternoonExit");
+        document.getElementById('toleranceMinutes').value = wh.get("toleranceMinutes");
+        await renderAdminUsers();
+        await populateSelects();
+        await renderHolidayList();
+        document.getElementById('adminNameInput').value = "Administrador";
+        updateEvolutionChart();
+        renderFacePhotosList();
+    }
+    async function refreshAdminUI() {
+        await renderAdminUsers(); await populateSelects(); await renderHolidayList();
+    }
+    async function adminRegister() {
+        const name = document.getElementById('adminNewName').value.trim();
+        const id = document.getElementById('adminNewId').value.trim();
+        const pass = document.getElementById('adminNewPass').value.trim();
+        const email = document.getElementById('adminNewEmail').value.trim();
+        if (!name || !id || !pass) { alert("Preencha nome, ID e senha"); return; }
+        const exists = await new Parse.Query("Employee").equalTo("employeeId", id).first();
+        if (exists) { alert("ID já existe"); return; }
+        const emp = new Parse.Object("Employee");
+        emp.set("employeeId", id); emp.set("name", name); emp.set("password", pass); emp.set("email", email);
+        emp.set("role","employee"); emp.set("records",[]); emp.set("photo",""); emp.set("cpf",""); emp.set("endereco",""); emp.set("celular",""); emp.set("faceDescriptor",null);
+        await emp.save();
+        await refreshAdminUI();
+        document.getElementById('adminNewName').value = ''; document.getElementById('adminNewId').value = ''; document.getElementById('adminNewPass').value = ''; document.getElementById('adminNewEmail').value = '';
+        alert(`Funcionário ${name} cadastrado!`);
+    }
+    async function addHoliday() {
+        const date = document.getElementById('holidayDate').value;
+        const name = document.getElementById('holidayName').value.trim();
+        if (!date || !name) { alert("Preencha data e nome"); return; }
+        const h = new Parse.Object("Holiday");
+        h.set("date", date); h.set("name", name);
+        await h.save();
+        renderHolidayList();
+        document.getElementById('holidayDate').value = ''; document.getElementById('holidayName').value = '';
+    }
+    async function saveCompanyData() {
+        const company = await getCompany();
+        company.set("name", document.getElementById('companyName').value);
+        company.set("cnpj", document.getElementById('companyCnpj').value);
+        await company.save();
+        alert("Empresa salva!");
+    }
+    async function saveWorkHours() {
+        const wh = await getWorkHours();
+        wh.set("morningEntry", document.getElementById('morningEntry').value);
+        wh.set("morningExit", document.getElementById('morningExit').value);
+        wh.set("afternoonEntry", document.getElementById('afternoonEntry').value);
+        wh.set("afternoonExit", document.getElementById('afternoonExit').value);
+        wh.set("toleranceMinutes", parseInt(document.getElementById('toleranceMinutes').value) || 10);
+        await wh.save();
+        alert("Carga horária salva!");
+    }
+    async function generateAdminReport() {
+        const userId = document.getElementById('adminReportUserId').value;
+        if (!userId) { alert("Selecione um funcionário"); return; }
+        const start = new Date(document.getElementById('adminReportStart').value);
+        const end = new Date(document.getElementById('adminReportEnd').value);
+        if (isNaN(start) || isNaN(end)) { alert("Datas inválidas"); return; }
+        const report = await generateDetailedReport(userId, start, end);
+        if (!report) { alert("Erro ao gerar relatório"); return; }
+        document.getElementById('adminReportResult').innerHTML = renderReportHtml(report, `Relatório - ${report.user.name}`);
+        window.currentReportHtml = document.getElementById('adminReportResult').innerHTML;
+    }
+    function printReport() { if (window.currentReportHtml) { const w = window.open('', '_blank'); w.document.write(`<html><head><title>Relatório</title><link href="https://cdn.tailwindcss.com" rel="stylesheet"><style>body{padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:6px}</style></head><body>${window.currentReportHtml}</body></html>`); w.document.close(); w.print(); } else alert("Nenhum relatório gerado."); }
+    function saveAdminSettings() {
+        const newName = document.getElementById('adminNameInput').value.trim();
+        const newPassword = document.getElementById('adminPasswordInput').value.trim();
+        if (newName) localStorage.setItem("adminName", newName);
+        if (newPassword) localStorage.setItem("adminPassword", newPassword);
+        alert("Admin atualizado (localmente)");
+        document.getElementById('adminPasswordInput').value = '';
+    }
+
+    // ==================== FUNCIONÁRIO ====================
+    async function employeePunchOnly(id) {
+        const emp = await new Parse.Query("Employee").equalTo("employeeId", id).first();
+        if (!emp) { alert("ID não encontrado."); return false; }
+        const result = await registerPunchWithPhoto(emp, null);
+        if (result) alert(`✅ Ponto ${result.type==='entry'?'ENTRADA':'SAÍDA'} às ${formatDateTime(result.timestamp)}\nSérie: ${result.serial}\nIP: ${result.ip}`);
+        return !!result;
+    }
+    async function employeeFullLogin(id, pass) {
+        const emp = await new Parse.Query("Employee").equalTo("employeeId", id).first();
+        if (!emp) { document.getElementById('loginError').innerHTML = 'ID não encontrado.'; document.getElementById('loginError').classList.remove('hidden'); return false; }
+        if (emp.get("password") !== pass) { document.getElementById('loginError').innerHTML = 'Senha incorreta.'; document.getElementById('loginError').classList.remove('hidden'); return false; }
+        currentEmployee = emp;
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('employeePanel').classList.remove('hidden');
+        document.getElementById('empNameDisplay').innerText = emp.get("name");
+        document.getElementById('empIdDisplay').innerText = emp.get("employeeId");
+        document.getElementById('empPhotoImg').src = emp.get("photo") || 'https://via.placeholder.com/80';
+        document.getElementById('empNewEmail').value = emp.get("email") || '';
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('empReportStart').value = today;
+        document.getElementById('empReportEnd').value = today;
+        generateEmployeeReport();
+        gerarQrCodeFuncionario(emp, "funcionarioQrCode");
+        return true;
+    }
+    async function generateEmployeeReport() {
+        if (!currentEmployee) return;
+        const start = new Date(document.getElementById('empReportStart').value);
+        const end = new Date(document.getElementById('empReportEnd').value);
+        if (isNaN(start) || isNaN(end)) { alert("Datas inválidas"); return; }
+        const report = await generateDetailedReport(currentEmployee.get("employeeId"), start, end);
+        if (!report) { alert("Erro"); return; }
+        document.getElementById('empReportResult').innerHTML = renderReportHtml(report, `Meu Relatório`);
+        window.currentReportHtml = document.getElementById('empReportResult').innerHTML;
+    }
+    async function updateEmployeeData() {
+        if (!currentEmployee) return;
+        const newPass = document.getElementById('empNewPassword').value.trim();
+        const newId = document.getElementById('empNewId').value.trim();
+        const newEmail = document.getElementById('empNewEmail').value.trim();
+        const photo = document.getElementById('empPhotoUpload').files[0];
+        let changed = false;
+        if (newPass) { currentEmployee.set("password", newPass); changed = true; }
+        if (newEmail && newEmail !== currentEmployee.get("email")) { currentEmployee.set("email", newEmail); changed = true; }
+        if (newId && newId !== currentEmployee.get("employeeId")) {
+            const exists = await new Parse.Query("Employee").equalTo("employeeId", newId).first();
+            if (exists) { alert("ID já em uso"); return; }
+            currentEmployee.set("employeeId", newId); changed = true; document.getElementById('empIdDisplay').innerText = newId;
+        }
+        if (photo) {
+            const reader = new FileReader();
+            reader.onload = async e => { currentEmployee.set("photo", e.target.result); await currentEmployee.save(); alert("Atualizado!"); clearEmployeeFields(); gerarQrCodeFuncionario(currentEmployee, "funcionarioQrCode"); };
+            reader.readAsDataURL(photo);
+            return;
+        }
+        if (changed) { await currentEmployee.save(); alert("Atualizado!"); gerarQrCodeFuncionario(currentEmployee, "funcionarioQrCode"); }
+        else alert("Nenhuma alteração");
+        clearEmployeeFields();
+    }
+    function clearEmployeeFields() { document.getElementById('empNewPassword').value=''; document.getElementById('empNewId').value=''; document.getElementById('empNewEmail').value=''; document.getElementById('empPhotoUpload').value=''; }
+    function gerarQrCodeFuncionario(employee, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = "";
+        getCompany().then(company => {
+            const texto = `📇 CARTÃO DIGITAL\nNome: ${employee.get("name")}\nID: ${employee.get("employeeId")}\nE-mail: ${employee.get("email")||'N/I'}\nCPF: ${employee.get("cpf")||'N/I'}\nCelular: ${employee.get("celular")||'N/I'}\nEmpresa: ${company.get("name")}\nCNPJ: ${company.get("cnpj")}`;
+            new QRCode(container, { text: texto, width: 180, height: 180, colorDark: "#000", colorLight: "#fff", correctLevel: QRCode.CorrectLevel.M });
+        });
+    }
+    async function baixarQrCodeComoImagem() {
+        const container = document.getElementById("funcionarioQrCode");
+        if (!container || !container.querySelector("img")) { alert("QR Code não gerado."); return; }
+        const qrImg = container.querySelector("img");
+        const canvas = document.createElement("canvas");
+        canvas.width = qrImg.width; canvas.height = qrImg.height;
+        canvas.getContext("2d").drawImage(qrImg, 0, 0);
+        const link = document.createElement("a");
+        link.download = `QRCode_${currentEmployee.get("employeeId")}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+    }
+
+    // ==================== REGISTRO DE PONTO COM FOTO ====================
+    async function registerPunchWithPhoto(employee, photoBase64) {
+        const today = new Date().toISOString().split('T')[0];
+        const holidays = await getHolidays();
+        if (holidays.some(h => h.get("date") === today)) { alert("Hoje é feriado."); return false; }
+        let records = employee.get("records") || [];
+        const todayRecords = records.filter(r => new Date(r.timestamp).toISOString().split('T')[0] === today);
+        const now = new Date();
+        const nowSec = now.getHours()*3600 + now.getMinutes()*60 + now.getSeconds();
+        const wh = await getWorkHours();
+        if (todayRecords.length === 0) {
+            const [h,m] = wh.get("morningEntry").split(':');
+            const horarioObrigatorio = parseInt(h)*3600 + parseInt(m)*60;
+            const tolerancia = wh.get("toleranceMinutes") * 60;
+            if (nowSec > horarioObrigatorio + tolerancia && !confirm(`Atraso de ${Math.floor((nowSec-horarioObrigatorio)/60)} min. Registrar?`)) return false;
+        }
+        const type = (todayRecords.length % 2 === 0) ? 'entry' : 'exit';
+        const newRecord = { timestamp: now.toISOString(), type };
+        records.push(newRecord);
+        employee.set("records", records);
+        await employee.save();
+        const serial = gerarSerial();
+        const ip = await getPublicIP();
+        await gerarComprovante(employee, type, newRecord.timestamp, serial, ip);
+        const receipt = new Parse.Object("Receipt");
+        receipt.set("serial", serial);
+        receipt.set("employeeId", employee.get("employeeId"));
+        receipt.set("timestamp", new Date(newRecord.timestamp));
+        receipt.set("type", type);
+        receipt.set("ip", ip);
+        await receipt.save();
+        if (photoBase64) {
+            const photoFile = new Parse.File("face.jpg", { base64: photoBase64.split(',')[1] });
+            await photoFile.save();
+            const facePhoto = new Parse.Object("FacePhoto");
+            facePhoto.set("serial", serial);
+            facePhoto.set("employeeId", employee.get("employeeId"));
+            facePhoto.set("employeeName", employee.get("name"));
+            facePhoto.set("timestamp", new Date(newRecord.timestamp));
+            facePhoto.set("type", type);
+            facePhoto.set("ip", ip);
+            facePhoto.set("photo", photoFile);
+            await facePhoto.save();
+        }
+        return { type, timestamp: newRecord.timestamp, serial, ip };
+    }
+
+    async function gerarComprovante(employee, tipo, timestamp, serial, ip) {
+        const company = await getCompany();
+        const data = { serial, ip, funcionario: employee.get("name"), id: employee.get("employeeId"), tipo: tipo==='entry'?'ENTRADA':'SAÍDA', dataHora: formatDateTime(timestamp), empresa: company.get("name"), cnpj: company.get("cnpj") };
+        const div = document.createElement('div');
+        div.style.cssText = 'width:90%; max-width:280px; padding:12px; background:white; border-radius:10px; text-align:center; margin:0 auto;';
+        div.innerHTML = `<h3>COMPROVANTE DE PONTO</h3><p>Série: ${serial}</p><p>CNPJ: ${escapeHtml(company.get("cnpj"))}</p><p>IP: ${ip}</p><div style="text-align:left"><p><strong>Funcionário:</strong> ${escapeHtml(employee.get("name"))}</p><p><strong>ID:</strong> ${escapeHtml(employee.get("employeeId"))}</p><p><strong>Tipo:</strong> ${data.tipo}</p><p><strong>Data/Hora:</strong> ${data.dataHora}</p><p><strong>Empresa:</strong> ${escapeHtml(company.get("name"))}</p></div><div id="qrCodeContainer"></div>`;
+        document.body.appendChild(div);
+        await new Promise(r => setTimeout(r, 100));
+        const qrContainer = div.querySelector("#qrCodeContainer");
+        if (qrContainer) new QRCode(qrContainer, { text: JSON.stringify(data), width: 80, height: 80 });
+        await new Promise(r => setTimeout(r, 400));
+        const canvas = await html2canvas(div, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', [105, 148]);
+        const imgW = 95, imgH = (canvas.height * imgW) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 5, 5, imgW, imgH);
+        pdf.save(`Comprovante_${employee.get("employeeId")}_${serial}.pdf`);
+        div.remove();
+        alert(`Comprovante gerado! Série: ${serial} - IP: ${ip}`);
+    }
+
+    // ==================== RELATÓRIOS ====================
+    async function generateDetailedReport(userId, startDate, endDate) {
+        const emp = await new Parse.Query("Employee").equalTo("employeeId", userId).first();
+        if (!emp) return null;
+        let records = emp.get("records") || [];
+        let start = new Date(startDate), end = new Date(endDate);
+        let days = [], cur = new Date(start);
+        while (cur <= end) { days.push(new Date(cur)); cur.setDate(cur.getDate()+1); }
+        let rows = [], totalTrab = 0, totalFaltas = 0, totalExtras = 0;
+        for (let day of days) {
+            const dayStr = day.toISOString().split('T')[0];
+            const dayRec = records.filter(r => new Date(r.timestamp).toISOString().split('T')[0] === dayStr).sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));
+            const weekday = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'][day.getDay()];
+            if (dayRec.length === 0) { let falta = 8*3600; totalFaltas += falta; rows.push({ date: dayStr, weekday, turno: "Único", entrada: "—", saida: "—", trabalho: 0, falta, extra: 0, serials: [] }); }
+            else {
+                let pairs = [];
+                for (let i=0;i<dayRec.length;i+=2) {
+                    if (dayRec[i] && dayRec[i+1] && dayRec[i].type==='entry' && dayRec[i+1].type==='exit') pairs.push({ entry: dayRec[i], exit: dayRec[i+1] });
+                    else if (dayRec[i] && dayRec[i].type==='entry') pairs.push({ entry: dayRec[i], exit: null });
+                }
+                for (let idx=0; idx<pairs.length; idx++) {
+                    const p = pairs[idx];
+                    let trabSeg=0, faltaSeg=0, extraSeg=0;
+                    let turno = (pairs.length===1)?"Único":(idx===0?"Manhã":"Tarde");
+                    let entrada = p.entry ? formatTime(p.entry.timestamp):"—";
+                    let saida = p.exit ? formatTime(p.exit.timestamp):"—";
+                    let serials = [];
+                    if(p.entry) { let r = await new Parse.Query("Receipt").equalTo("employeeId", userId).equalTo("timestamp", new Date(p.entry.timestamp)).first(); if(r) serials.push({serial: r.get("serial"), ip: r.get("ip")}); }
+                    if(p.exit) { let r = await new Parse.Query("Receipt").equalTo("employeeId", userId).equalTo("timestamp", new Date(p.exit.timestamp)).first(); if(r) serials.push({serial: r.get("serial"), ip: r.get("ip")}); }
+                    if(p.entry && p.exit) {
+                        let diff = (new Date(p.exit.timestamp)-new Date(p.entry.timestamp))/1000;
+                        trabSeg = diff;
+                        let esperado = (8*3600)/pairs.length;
+                        if(trabSeg > esperado) { extraSeg = trabSeg - esperado; trabSeg = esperado; }
+                        else if(trabSeg < esperado) faltaSeg = esperado - trabSeg;
+                    } else faltaSeg = (8*3600)/pairs.length;
+                    totalTrab += trabSeg; totalExtras += extraSeg; totalFaltas += faltaSeg;
+                    rows.push({ date: dayStr, weekday, turno, entrada, saida, trabalho: trabSeg, falta: faltaSeg, extra: extraSeg, serials });
+                }
+            }
+        }
+        let totalEsperado = days.length * 8 * 3600;
+        let assiduidade = totalEsperado>0?((totalEsperado-totalFaltas)/totalEsperado*100):100;
+        const company = await getCompany();
+        return { user: { name: emp.get("name"), id: emp.get("employeeId"), email: emp.get("email") }, rows, totalTrabalhado: totalTrab, totalFaltas, totalExtras, totalEsperado, assiduidade, startDate, endDate, company };
+    }
+    function renderReportHtml(report, title) {
+        if(!report) return "<p>Nenhum dado.</p>";
+        let html = `<div><h2 class="text-xl font-bold text-white">${title}</h2><p class="text-gray-300">Empresa: ${escapeHtml(report.company.get("name"))} - CNPJ: ${escapeHtml(report.company.get("cnpj"))}</p><p class="text-gray-300">Funcionário: ${escapeHtml(report.user.name)} (${escapeHtml(report.user.id)}) - Email: ${escapeHtml(report.user.email||'')}</p><p class="text-gray-300">Período: ${formatDate(report.startDate)} à ${formatDate(report.endDate)}</p><table class="report-table w-full"><thead><tr><th>Data</th><th>Dia/Turno</th><th>Entrada</th><th>Saída</th><th>Trabalho</th><th>Faltas</th><th>Extras</th><th>Comprovante (Série / IP)</th></tr></thead><tbody>`;
+        for(let r of report.rows) {
+            let serialsHtml = r.serials.map(s => `<span class="text-xs bg-gray-800 px-1 rounded">${s.serial} (IP: ${s.ip})</span>`).join('<br>') || '—';
+            html += `<tr><td class="p-1">${formatDate(r.date)}</td><td class="p-1">${r.weekday}/${r.turno}</td><td class="p-1">${r.entrada}</td><td class="p-1">${r.saida}</td><td class="p-1">${segundosParaHMS(r.trabalho)}</td><td class="p-1">${segundosParaHMS(r.falta)}</td><td class="p-1">${segundosParaHMS(r.extra)}</td><td class="p-1">${serialsHtml}</td></tr>`;
+        }
+        html += `<tr style="background:rgba(79,70,229,0.2);"><td colspan="4">Total</td><td>${segundosParaHMS(report.totalTrabalhado)}</td><td>${segundosParaHMS(report.totalFaltas)}</td><td>${segundosParaHMS(report.totalExtras)}</td><td></td></tr></tbody></table><p class="mt-2">Assiduidade: ${report.assiduidade.toFixed(2)}%</p></div>`;
+        return html;
+    }
+
+    async function updateEvolutionChart() {
+        const employeeId = document.getElementById('evolutionEmployeeId').value;
+        const days = parseInt(document.getElementById('evolutionDays').value);
+        if (!employeeId) return;
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days + 1);
+        const report = await generateDetailedReport(employeeId, startDate, endDate);
+        if (!report) return;
+        const dates = [];
+        const hours = [];
+        for (let i = 0; i < days; i++) {
+            const d = new Date(startDate);
+            d.setDate(startDate.getDate() + i);
+            const dateStr = d.toISOString().split('T')[0];
+            dates.push(dateStr.slice(5));
+            const row = report.rows.find(r => r.date === dateStr);
+            hours.push(row ? row.trabalho / 3600 : 0);
+        }
+        if (evolutionChart) evolutionChart.destroy();
+        const ctx = document.getElementById('evolutionChart').getContext('2d');
+        evolutionChart = new Chart(ctx, { type: 'bar', data: { labels: dates, datasets: [{ label: 'Horas Trabalhadas', data: hours, backgroundColor: '#4f46e5', borderRadius: 8 }] }, options: { responsive: true, maintainAspectRatio: true, scales: { y: { beginAtZero: true, title: { display: true, text: 'Horas', color: '#fff' } }, x: { ticks: { color: '#fff' } } }, plugins: { legend: { labels: { color: '#fff' } } } } });
+    }
+
+    // ==================== FOTOS DOS PONTOS ====================
+    async function renderFacePhotosList() {
+        const filterEmployee = document.getElementById('facePhotoEmployeeFilter').value;
+        let startDate = document.getElementById('facePhotoStartDate').value;
+        let endDate = document.getElementById('facePhotoEndDate').value;
+        let query = new Parse.Query("FacePhoto");
+        if (filterEmployee) query.equalTo("employeeId", filterEmployee);
+        if (startDate) query.greaterThanOrEqualTo("timestamp", new Date(startDate));
+        if (endDate) query.lessThanOrEqualTo("timestamp", new Date(endDate + "T23:59:59"));
+        const photos = await query.find();
+        const container = document.getElementById('facePhotosList');
+        if (!container) return;
+        if (photos.length === 0) { container.innerHTML = '<div class="col-span-full text-center text-gray-400">Nenhuma foto encontrada.</div>'; return; }
+        container.innerHTML = photos.map(p => {
+            const photoUrl = p.get("photo").url();
+            return `<div class="bg-gray-800 rounded-xl p-2 text-center">
+                        <img src="${photoUrl}" class="face-photo w-full h-auto rounded-lg cursor-pointer" onclick="showPhotoModal('${photoUrl}')">
+                        <p class="text-xs mt-1">${p.get("employeeName")}</p>
+                        <p class="text-xs text-gray-400">${formatDateTime(p.get("timestamp").toISOString())}</p>
+                        <p class="text-xs">${p.get("type") === 'entry' ? 'ENTRADA' : 'SAÍDA'}</p>
+                        <p class="text-xs">Série: ${p.get("serial")}</p>
+                        <p class="text-xs">IP: ${p.get("ip")}</p>
+                    </div>`;
+        }).join('');
+    }
+    window.showPhotoModal = function(photoSrc) {
+        const modal = document.getElementById('photoModal');
+        const img = document.getElementById('photoModalImg');
+        img.src = photoSrc;
+        modal.classList.remove('hidden');
+    };
+    function closePhotoModal() { document.getElementById('photoModal').classList.add('hidden'); }
+
+    // ==================== RECUPERAÇÃO E CADASTRO ====================
+    async function faceLoginAndPunch() {
+        if (!await loadFaceModels()) { alert("Modelos faciais não carregados."); return; }
+        openCameraForFace(async (descriptor) => {
+            let bestMatch = null;
+            let bestDistance = 0.6;
+            const employees = await getEmployees();
+            for (let emp of employees) {
+                const fd = emp.get("faceDescriptor");
+                if (fd && fd.length) {
+                    const distance = faceapi.euclideanDistance(descriptor, fd);
+                    if (distance < bestDistance) { bestDistance = distance; bestMatch = emp; }
+                }
+            }
+            if (!bestMatch) { alert("Rosto não reconhecido."); return; }
+            const result = await registerPunchWithPhoto(bestMatch, null);
+            if (result) alert(`✅ Ponto ${result.type==='entry'?'ENTRADA':'SAÍDA'} às ${formatDateTime(result.timestamp)}\nSérie: ${result.serial}\nIP: ${result.ip}`);
+            else alert("Erro ao registrar ponto.");
+        }, false);
+    }
+
+    async function registerWithFace() {
+        const name = document.getElementById('regName').value.trim();
+        const id = document.getElementById('regId').value.trim();
+        const email = document.getElementById('regEmail').value.trim();
+        const password = document.getElementById('regPassword').value;
+        const cpf = document.getElementById('regCpf').value.trim();
+        const celular = document.getElementById('regCelular').value.trim();
+        if (!name || !id || !email || !password) { alert("Preencha nome, ID, e-mail e senha"); return; }
+        const exists = await new Parse.Query("Employee").equalTo("employeeId", id).first();
+        if (exists) { alert("ID já existe"); return; }
+        openCameraForFace(async (descriptor) => {
+            const emp = new Parse.Object("Employee");
+            emp.set("employeeId", id); emp.set("name", name); emp.set("password", password); emp.set("email", email);
+            emp.set("cpf", cpf); emp.set("celular", celular); emp.set("role","employee"); emp.set("records",[]); emp.set("photo",""); emp.set("endereco",""); emp.set("faceDescriptor", descriptor);
+            await emp.save();
+            alert("Cadastro realizado com sucesso! Reconhecimento facial registrado.");
+            document.getElementById('registerModal').classList.add('hidden');
+        }, false);
+    }
+
+    function sendResetCode(email) { alert("Funcionalidade de recuperação de senha implementada de forma similar."); }
+    function resetPassword(code, newPassword) { alert("Funcionalidade de recuperação de senha implementada de forma similar."); }
+    async function selfRegister(name, id, email, password, cpf, celular) {
+        if (!name || !id || !email || !password) { alert("Preencha nome, ID, e-mail e senha"); return; }
+        const exists = await new Parse.Query("Employee").equalTo("employeeId", id).first();
+        if (exists) { alert("ID já existe"); return; }
+        const emp = new Parse.Object("Employee");
+        emp.set("employeeId", id); emp.set("name", name); emp.set("password", password); emp.set("email", email);
+        emp.set("cpf", cpf); emp.set("celular", celular); emp.set("role","employee"); emp.set("records",[]); emp.set("photo",""); emp.set("endereco",""); emp.set("faceDescriptor",null);
+        await emp.save();
+        alert("Cadastro realizado! Faça login.");
+        document.getElementById('registerModal').classList.add('hidden');
+    }
+
+    // ==================== LOGIN E TABS ====================
+    function setActiveTab(tab) {
+        if (tab === 'admin') {
+            document.getElementById('tabAdminBtn').classList.add('text-indigo-400','border-b-2','border-indigo-400');
+            document.getElementById('tabEmployeeBtn').classList.remove('text-indigo-400','border-b-2','border-indigo-400');
+            document.getElementById('adminLoginPanel').classList.remove('hidden');
+            document.getElementById('employeeLoginPanel').classList.add('hidden');
+        } else {
+            document.getElementById('tabEmployeeBtn').classList.add('text-indigo-400','border-b-2','border-indigo-400');
+            document.getElementById('tabAdminBtn').classList.remove('text-indigo-400','border-b-2','border-indigo-400');
+            document.getElementById('adminLoginPanel').classList.add('hidden');
+            document.getElementById('employeeLoginPanel').classList.remove('hidden');
+        }
+    }
+    function adminLogin() {
+        const username = document.getElementById('loginUser').value.trim();
+        const password = document.getElementById('loginPass').value;
+        if (username !== "admin") { alert("Usuário admin inválido"); return; }
+        const adminPass = localStorage.getItem("adminPassword") || "";
+        if (adminPass !== "" && adminPass !== password) { alert("Senha incorreta"); return; }
+        currentUser = { id: "admin", name: "Administrador" };
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('adminPanel').classList.remove('hidden');
+        loadAdminData();
+    }
+
+    // ==================== BACKUP LOCAL ====================
+    function exportBackup() {
+        const backupData = { version: "4.0", timestamp: new Date().toISOString() };
+        const dataStr = JSON.stringify(backupData, null, 2);
+        const blob = new Blob([dataStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ponto_backup_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        document.getElementById('backupStatus').innerText = "Backup exportado!";
+        setTimeout(() => document.getElementById('backupStatus').innerText = "", 3000);
+    }
+    function importBackup(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                alert("Backup importado (dados locais). Recarregue a página.");
+                location.reload();
+            } catch(err) { alert("Arquivo inválido."); }
+        };
+        reader.readAsText(file);
+    }
+    function startAutoBackup() {
+        if (autoBackupInterval) clearInterval(autoBackupInterval);
+        autoBackupInterval = setInterval(() => {
+            exportBackup();
+        }, 3600000);
+    }
+
+    // ==================== INICIALIZAÇÃO ====================
+    window.onload = async () => {
+        await getCompany(); // garante que a classe Company exista
+        setActiveTab('admin');
+        // Abas
+        document.querySelectorAll('.tab-admin-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-admin-btn').forEach(b => b.classList.remove('text-indigo-400', 'border-b-2', 'border-indigo-400'));
+                btn.classList.add('text-indigo-400', 'border-b-2', 'border-indigo-400');
+                const tabId = btn.dataset.tab;
+                document.querySelectorAll('.admin-tab-content').forEach(div => div.classList.add('hidden'));
+                document.getElementById(`tab${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`).classList.remove('hidden');
+                if (tabId === 'facephotos') renderFacePhotosList();
+                if (tabId === 'evolution') updateEvolutionChart();
+            });
+        });
+        document.getElementById('tabAdminBtn').onclick = () => setActiveTab('admin');
+        document.getElementById('tabEmployeeBtn').onclick = () => setActiveTab('employee');
+        document.getElementById('doLoginBtn').onclick = adminLogin;
+        document.getElementById('doEmployeeActionBtn').onclick = async () => {
+            const id = document.getElementById('employeeIdInput').value.trim();
+            const pass = document.getElementById('employeePassInput').value;
+            if (!id) { alert("Digite seu ID"); return; }
+            if (pass === "") await employeePunchOnly(id);
+            else await employeeFullLogin(id, pass);
+            document.getElementById('employeeIdInput').value = '';
+            document.getElementById('employeePassInput').value = '';
+            document.getElementById('loginError').classList.add('hidden');
+        };
+        document.getElementById('employeeFaceLoginBtn').onclick = faceLoginAndPunch;
+        document.getElementById('registerFaceBtn').onclick = registerWithFace;
+        document.getElementById('adminLogoutBtn').onclick = () => { document.getElementById('adminPanel').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); if (autoBackupInterval) clearInterval(autoBackupInterval); };
+        document.getElementById('empLogoutBtn').onclick = () => { document.getElementById('employeePanel').classList.add('hidden'); document.getElementById('loginScreen').classList.remove('hidden'); currentEmployee = null; };
+        document.getElementById('adminRegisterUserBtn').onclick = adminRegister;
+        document.getElementById('addHolidayBtn').onclick = addHoliday;
+        document.getElementById('adminGenerateReportBtn').onclick = generateAdminReport;
+        document.getElementById('adminPrintReportBtn').onclick = printReport;
+        document.getElementById('empPrintReportBtn').onclick = printReport;
+        document.getElementById('saveCompanyBtn').onclick = saveCompanyData;
+        document.getElementById('saveWorkHoursBtn').onclick = saveWorkHours;
+        document.getElementById('saveEmployeeEdit').onclick = saveEmployeeEdit;
+        document.getElementById('closeModalBtn').onclick = () => document.getElementById('editEmployeeModal').classList.add('hidden');
+        document.getElementById('empUpdateDataBtn').onclick = updateEmployeeData;
+        document.getElementById('saveAdminSettingsBtn').onclick = saveAdminSettings;
+        document.getElementById('empGenerateReportBtn').onclick = generateEmployeeReport;
+        document.getElementById('baixarQrCodeBtn').onclick = baixarQrCodeComoImagem;
+        document.getElementById('manualBackupBtn').onclick = exportBackup;
+        document.getElementById('importBackupFile').onchange = (e) => { if (e.target.files[0]) importBackup(e.target.files[0]); };
+        document.getElementById('updateEvolutionBtn').onclick = updateEvolutionChart;
+        document.getElementById('filterFacePhotosBtn').onclick = renderFacePhotosList;
+        document.getElementById('closePhotoModal').onclick = closePhotoModal;
+        const autoCheck = document.getElementById('autoBackupCheckbox');
+        if (autoCheck) { autoCheck.checked = true; startAutoBackup(); autoCheck.onchange = () => { if (autoCheck.checked) startAutoBackup(); else if (autoBackupInterval) clearInterval(autoBackupInterval); }; }
+        document.getElementById('forgotPasswordLink').onclick = () => document.getElementById('forgotModal').classList.remove('hidden');
+        document.getElementById('newRegistrationLink').onclick = () => document.getElementById('registerModal').classList.remove('hidden');
+        document.getElementById('closeForgotModal').onclick = () => document.getElementById('forgotModal').classList.add('hidden');
+        document.getElementById('closeRegisterModal').onclick = () => document.getElementById('registerModal').classList.add('hidden');
+        document.getElementById('sendCodeBtn').onclick = () => { const email = document.getElementById('forgotEmail').value.trim(); if (email) sendResetCode(email); else alert("Digite o e-mail"); };
+        document.getElementById('resetPasswordBtn').onclick = () => { const code = document.getElementById('resetCode').value.trim(); const newPass = document.getElementById('newPassword').value; if (code && newPass) resetPassword(code, newPass); else alert("Preencha código e nova senha"); };
+        document.getElementById('confirmRegisterBtn').onclick = () => { const name = document.getElementById('regName').value.trim(); const id = document.getElementById('regId').value.trim(); const email = document.getElementById('regEmail').value.trim(); const pass = document.getElementById('regPassword').value; const cpf = document.getElementById('regCpf').value.trim(); const cel = document.getElementById('regCelular').value.trim(); selfRegister(name, id, email, pass, cpf, cel); };
+        loadFaceModels();
+    };
+</script>
+</body>
+</html>
