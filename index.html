@@ -617,14 +617,33 @@
             const statusEl = document.getElementById('backupStatus');
             if (statusEl) { statusEl.innerText = "Backup exportado!"; setTimeout(() => statusEl.innerText = "", 3000); }
         }
-        function importBackup(file) {
+        async function importBackup(file) {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
-                    JSON.parse(e.target.result);
-                    alert("Backup importado. Recarregue a pagina.");
+                    const data = JSON.parse(e.target.result);
+                    if (!data || !data.version) { alert("Arquivo de backup invalido."); return; }
+                    if (data.company) await saveCompanyDoc(data.company);
+                    if (data.workHours) await saveWorkHoursDoc(data.workHours);
+                    if (data.employees && Array.isArray(data.employees)) {
+                        for (const emp of data.employees) {
+                            const existing = await getEmployeeByLoginId(emp.employeeId);
+                            if (existing) {
+                                await saveEmployeeDoc(existing.id, emp);
+                            } else {
+                                const { id, ...empData } = emp;
+                                await addEmployeeDoc(empData);
+                            }
+                        }
+                    }
+                    if (data.holidays && Array.isArray(data.holidays)) {
+                        for (const h of data.holidays) {
+                            await addHolidayDoc(h.date, h.name);
+                        }
+                    }
+                    alert("Backup importado com sucesso!");
                     location.reload();
-                } catch(err) { alert("Arquivo invalido."); }
+                } catch(err) { console.error(err); alert("Erro ao importar backup: " + err.message); }
             };
             reader.readAsText(file);
         }
@@ -681,11 +700,14 @@
                 const id = document.getElementById('employeeIdInput').value.trim();
                 const pass = document.getElementById('employeePassInput').value;
                 if (!id) { alert("Digite seu ID"); return; }
-                if (pass === "") await employeePunchOnly(id);
-                else await employeeFullLogin(id, pass);
-                document.getElementById('employeeIdInput').value = '';
-                document.getElementById('employeePassInput').value = '';
-                document.getElementById('loginError').classList.add('hidden');
+                let loginSuccess = false;
+                if (pass === "") { await employeePunchOnly(id); loginSuccess = true; }
+                else loginSuccess = await employeeFullLogin(id, pass);
+                if (loginSuccess) {
+                    document.getElementById('employeeIdInput').value = '';
+                    document.getElementById('employeePassInput').value = '';
+                    document.getElementById('loginError').classList.add('hidden');
+                }
             };
 
             // Logout
@@ -804,7 +826,7 @@
                 <button id="tabEmployeeBtn" class="flex-1 py-2 font-semibold text-gray-400">Funcionario</button>
             </div>
             <div id="adminLoginPanel" class="space-y-4">
-                <input type="email" id="loginUser" placeholder="E-mail do admin" class="input-expert w-full" value="teste@pontodigitall0.com">
+                <input type="email" id="loginUser" placeholder="E-mail do admin" class="input-expert w-full">
                 <input type="password" id="loginPass" placeholder="Senha" class="input-expert w-full">
                 <button id="doLoginBtn" class="btn-primary w-full text-white font-semibold py-3 rounded-xl">Entrar como Admin</button>
             </div>
